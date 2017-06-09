@@ -31,7 +31,6 @@ class Artifactory:
         """
         self.image = image
         self.image[self.image == 0] = 1  # zero values are transparent
-		
         self.height = image.shape[0]
         self.width = image.shape[1]
         self.patch_height = patch_height
@@ -84,26 +83,19 @@ class Artifactory:
 
             return out
 
-    def patch_misalignment(self, patch, max_rot_angle):
-        """
+    def patch_misalignment(self, patch, max_rot_angle_deg, vertical_seam=True):
 
-        :param patch: 2D numpy array (sub image)
-        :param max_rot_angle:
-        :return: Misaligned image
-        """
-        random_x_split = numpy.random.randint(0, self.patch_width)
+        seam_mask = self.create_random_seam_mask(patch, vertical_seam)
+        seam = self.find_seam(seam_mask)
 
-        # artificially rotate sub patch
-        matrix = self.get_random_rot_matrix(max_rot_angle)
+        matrix = self.get_random_rot_matrix(max_rot_angle_deg)
         sub_patch_left = self.rotate_patch(patch, matrix)
 
-        # merge two sides of the patch into a new 2D image
-        # out = numpy.zeros(shape=patch.shape, dtype=numpy.float32)
-        out = sub_patch_left
-        out[:, random_x_split:] = patch[:, random_x_split:]
+        out = sub_patch_left  # static left side
+        out[seam_mask == 255] = patch[seam_mask == 255]  # distort right side
+        out[out == 0] = patch[out == 0]  # fill holes
 
-        out[out == 0] = patch[out == 0]
-        return out
+        return out, seam
 
     def create_random_seam_mask(self, patch, vertical_seam=True):
 

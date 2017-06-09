@@ -27,11 +27,17 @@ for im, image_name in enumerate(images_names):
     for k in range(int(num_of_examps /len(images_names))):
         articactor.set_image(input_image, patch_size, patch_size)
         patch = articactor.get_random_patch()
+
+
         y = 0
         # p probability for misalignment
         choise = numpy.random.choice(2, 1, p=[artifact_prob, 1-artifact_prob])
         if choise:
-            patch = articactor.patch_misalignment(patch, max_angle)
+            choise2 = numpy.random.choice(2, 1, p=[0.5, 0.5])
+            if choise2:
+                patch, _ = articactor.patch_misalignment(patch, 10, vertical_seam=True)
+            else:
+                patch, _ = articactor.patch_misalignment(patch, 10, vertical_seam=False)
             y = 1
 
         data_set_x[im*int((num_of_examps /len(images_names))) + k, :, :, :] = patch
