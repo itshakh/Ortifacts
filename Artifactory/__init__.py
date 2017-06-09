@@ -30,6 +30,8 @@ class Artifactory:
         :return:
         """
         self.image = image
+        self.image[self.image == 0] = 1  # zero values are transparent
+		
         self.height = image.shape[0]
         self.width = image.shape[1]
         self.patch_height = patch_height
@@ -102,3 +104,30 @@ class Artifactory:
 
         out[out == 0] = patch[out == 0]
         return out
+
+    def create_random_seam_mask(self, patch, vertical_seam=True):
+
+        mask_out = numpy.zeros_like(patch, dtype=numpy.float32)
+        random_x = numpy.random.randint(0, patch.shape[0])
+
+        if vertical_seam:
+            mask_out[:, :random_x, 0:3] = [255, 255, 255]
+
+        else:
+            for row in range(0, self.patch_height):
+                mask_out[row, :random_x, 0:3] = [255, 255, 255]
+                random_x += numpy.random.randint(0, 3) - 1
+                random_x = min(random_x, mask_out.shape[1] - 1)
+                random_x = max(random_x, 0)
+
+        return mask_out
+
+    @staticmethod
+    def find_seam(seam_mask):
+
+        shifted_seam = numpy.zeros_like(seam_mask, dtype=numpy.float32) + 255
+        shifted_seam[:, 1:, 0:3] = seam_mask[:, :-1, 0:3]
+        seam = numpy.absolute(seam_mask - shifted_seam)
+
+        return seam.astype(numpy.float32)
+

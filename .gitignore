@@ -1,0 +1,18 @@
+# General ignores
+
+*.sdf
+*.opensdf
+*.pyc
+*.pyo
+*.xml
+*.iml
+.idea/
+bin/
+x64/
+x86/
+Debug/
+Release/
+Thumbs.db
+*.rb
+ComputerGraphics/misc/
+ComputerGraphics/pmip/

@@ -68,16 +68,15 @@ class Data:
         self.train_x = numpy.ndarray(shape=(self.x.shape[0] - len(list(set_range)), self.x.shape[1], self.x.shape[2], 3),dtype=numpy.float32)
         self.train_y = numpy.ndarray(shape=(self.x.shape[0] - len(list(set_range)), 1), dtype=numpy.float32)
         self.train_x[:set_range[0]] = self.x[:set_range[0]]
-        self.train_x[set_range[0] + 1:] = self.x[set_range[-1]+1:]
+        self.train_x[set_range[0]:] = self.x[set_range[-1]:]
 
         self.train_y[:set_range[0]] = self.y[:set_range[0]]
-        self.train_y[set_range[0] + 1:] = self.y[set_range[-1]+1:]
+        self.train_y[set_range[0]:] = self.y[set_range[-1]:]
 
         self.val_x = self.x[set_range]
         self.val_y = self.y[set_range]
 
-        return (self.val_x, self.val_y)
-
+        return self.val_x, self.val_y
 
     def export_data(self, path):
         """
