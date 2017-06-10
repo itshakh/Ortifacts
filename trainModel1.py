@@ -57,8 +57,8 @@ biases = {
 # initialize the CNN
 pred = model.net(x, weights, biases, FLAGS, True, keep_prob)
 test_pred = model.net(x, weights, biases, FLAGS, False, keep_prob)
-cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred, labels=y))
-# cost = tf.reduce_mean(tf.abs(tf.add(y, tf.negative(pred)))) # L1
+# cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred, labels=y))
+cost = tf.reduce_mean(tf.abs(tf.add(y, tf.negative(pred)))) # L1
 accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1)), tf.float32))
 optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS['learning_rate']).minimize(cost)
 losses = []
