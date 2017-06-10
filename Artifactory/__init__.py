@@ -37,13 +37,13 @@ class Artifactory:
         self.patch_width = patch_width
 
     @staticmethod
-    def get_random_rot_matrix(max_angle):
+    def get_random_rot_matrix(min_angle, max_angle):
         """
         Generate random rotation matrix
         :param max_angle:
         :return:
         """
-        theta = numpy.random.uniform(0, max_angle) * (numpy.pi / 180)
+        theta = numpy.random.uniform(min_angle, max_angle) * (numpy.pi / 180)
 
         matrix = numpy.ndarray(shape=(2, 2), dtype=numpy.float32)
         matrix[0, 0] = numpy.cos(theta)
@@ -83,12 +83,12 @@ class Artifactory:
 
             return out
 
-    def patch_misalignment(self, patch, max_rot_angle_deg, vertical_seam=True):
+    def patch_misalignment(self, patch, min_rot_angle_deg, max_rot_angle_deg, vertical_seam=True):
 
         seam_mask = self.create_random_seam_mask(patch, vertical_seam)
         seam = self.find_seam(seam_mask)
 
-        matrix = self.get_random_rot_matrix(max_rot_angle_deg)
+        matrix = self.get_random_rot_matrix(min_rot_angle_deg, max_rot_angle_deg)
         sub_patch_left = self.rotate_patch(patch, matrix)
 
         out = sub_patch_left  # static left side
@@ -100,7 +100,7 @@ class Artifactory:
     def create_random_seam_mask(self, patch, vertical_seam=True):
 
         mask_out = numpy.zeros_like(patch, dtype=numpy.float32)
-        random_x = numpy.random.randint(0, patch.shape[0])
+        random_x = numpy.random.randint(patch.shape[0] / 4, 3 * patch.shape[0] / 4)
 
         if vertical_seam:
             mask_out[:, :random_x, 0:3] = [255, 255, 255]
