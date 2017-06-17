@@ -15,7 +15,7 @@ images_path = r"../Raw"
 articactor = Artifactory.Artifactory()
 
 # articactor.set_image(input_image, patch_size, patch_size)
-# TEST
+# Or want to see something
 
 images_names = os.listdir(r"../Raw")
 data_set = data.Data('p025_10000')
