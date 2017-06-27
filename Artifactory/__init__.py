@@ -61,7 +61,7 @@ class Artifactory:
         y = numpy.random.randint(0, self.height - self.patch_height)
         x = numpy.random.randint(0, self.width - self.patch_width)
 
-        return numpy.copy(self.image[y:y + self.patch_height, x:x + self.patch_width])
+        return numpy.uint8(numpy.copy(self.image[y:y + self.patch_height, x:x + self.patch_width]))
 
     @staticmethod
     def rotate_patch(patch, rot_matrix):
@@ -112,7 +112,7 @@ class Artifactory:
                 random_x = min(random_x, mask_out.shape[1] - 1)
                 random_x = max(random_x, 0)
 
-        return mask_out
+        return numpy.uint8(mask_out)
 
     @staticmethod
     def find_seam(seam_mask):

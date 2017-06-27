@@ -8,7 +8,7 @@ import shutil
 
 
 patch_size = 100
-max_angle = 10
+max_angle = 15
 min_angle = 5
 num_of_examps = 10000
 # percentages
@@ -71,7 +71,7 @@ images_names = os.listdir(r"../Raw")
 data_set = data.Data('p025_10000')
 data_set_x = numpy.empty(shape=(num_of_examps, patch_size, patch_size, 3), dtype=numpy.float32)
 data_set_y = numpy.empty(shape=(num_of_examps, 2), dtype=numpy.float32)
-
+numpy.random.seed(42)
 for im, image_name in enumerate(images_names):
     input_image = img.imread(os.path.join(images_path, image_name), 'tif')
     for k in range(int(num_of_examps / len(images_names))):
@@ -82,6 +82,7 @@ for im, image_name in enumerate(images_names):
         y[0] = 1.
 
         # p probability for misalignment
+
         choise = numpy.random.choice(2, 1, p=[artifact_prob, 1-artifact_prob])
         if choise:
             choise2 = numpy.random.choice(2, 1, p=[0.5, 0.5])

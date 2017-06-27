@@ -2,6 +2,7 @@ import numpy
 import matplotlib.image as im
 import matplotlib.pyplot as plt
 import os
+import scipy
 import pickle
 import random
 
@@ -92,3 +93,8 @@ class Data:
         (self.train_x, self.train_y) = pickle.load(open(train_path, "rb"))
         (self.val_x, self.val_y) = pickle.load(open(val_path, "rb"))
         (self.test_x, self.test_y) = pickle.load(open(test_path, "rb"))
+
+    @staticmethod
+    def feather(mask, image1, image2, ksize=3):
+        kernel = numpy
+
