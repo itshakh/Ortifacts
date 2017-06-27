@@ -69,7 +69,7 @@ except IOError:
 
 images_names = os.listdir(r"../Raw")
 data_set = data.Data('p025_10000')
-data_set_x = numpy.empty(shape=(num_of_examps, patch_size, patch_size, 3), dtype=numpy.float32)
+data_set_x = numpy.empty(shape=(num_of_examps, patch_size, patch_size, 3), dtype=numpy.uint8)
 data_set_y = numpy.empty(shape=(num_of_examps, 2), dtype=numpy.float32)
 numpy.random.seed(42)
 for im, image_name in enumerate(images_names):
@@ -160,6 +160,6 @@ for k in range(data_set.test_x.shape[0]):
         img.imsave(os.path.join(path_to_test_images, '1', '{:04d}.bmp'.format(k)),
                    data_set.test_x[k].astype(numpy.uint8))
 
-data_set.export_data(os.path.join(path_to_traning_images, 'train.pickle'),
-                     os.path.join(path_to_validation_images, 'val.pickle'),
-                     os.path.join(path_to_test_images, 'test.pickle'))
+data_set.export_data(os.path.join(path_to_traning_images, 'train_uint8.pickle'),
+                     os.path.join(path_to_validation_images, 'val_uint8.pickle'),
+                     os.path.join(path_to_test_images, 'test_uint8.pickle'))
