@@ -11,7 +11,7 @@ patch_size = 100
 patch_artifact_enlargement = 0.5
 max_angle = 15
 min_angle = 5
-num_of_examps = 1000
+num_of_examps = 10000
 # percentages
 
 rotation_prob = 0.1
@@ -88,8 +88,8 @@ for im, image_name in enumerate(images_names):
         y[0] = 1.
 
         # p probability for misalignment
-        choise = 0
-        if int(num_of_examps / len(images_names)) * im + k < data_seperation * num_of_examps: # numpy.random.choice(2, 1, p=[artifact_prob, 1-artifact_prob])
+        choise = numpy.random.choice(2, 1, p=[data_seperation, 1-data_seperation])
+        if choise:# int(num_of_examps / len(images_names)) * im + k < data_seperation * num_of_examps: #
             choise = 1
         if choise:
             choise2 = numpy.random.choice(2, 1, p=[0.5, 0.5])
