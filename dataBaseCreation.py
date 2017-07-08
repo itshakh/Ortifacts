@@ -8,13 +8,16 @@ import shutil
 
 
 patch_size = 100
+patch_artifact_enlargement = 0.5
 max_angle = 15
 min_angle = 5
-num_of_examps = 10000
+num_of_examps = 1000
 # percentages
+
+rotation_prob = 0.1
 validation_examps = 0.1
 test_examps = 0.1
-artifact_prob = 0.5
+data_seperation = 0.5
 images_path = r"../Raw"
 
 path_to_validation_images = './images/val'
@@ -66,6 +69,7 @@ try:
 except IOError:
     print("Could not create folder:: " + os.path.join(path_to_test_images, '1'))
 
+rot_90_mat = numpy.array([[0, -1], [1, 0]], dtype=numpy.float32)
 
 images_names = os.listdir(r"../Raw")
 data_set = data.Data('p025_10000')
@@ -75,20 +79,34 @@ numpy.random.seed(42)
 for im, image_name in enumerate(images_names):
     input_image = img.imread(os.path.join(images_path, image_name), 'tif')
     for k in range(int(num_of_examps / len(images_names))):
-        articactor.set_image(input_image, patch_size, patch_size)
-        patch = articactor.get_random_patch()
+        articactor.set_image(input_image,
+                             int(patch_size + patch_size * patch_artifact_enlargement),
+                             int(patch_size + patch_size * patch_artifact_enlargement))
+        patch_large = articactor.get_random_patch()
 
         y = numpy.zeros(shape=2, dtype=numpy.float32)
         y[0] = 1.
 
         # p probability for misalignment
-
-        choise = numpy.random.choice(2, 1, p=[artifact_prob, 1-artifact_prob])
+        choise = 0
+        if int(num_of_examps / len(images_names)) * im + k < data_seperation * num_of_examps: # numpy.random.choice(2, 1, p=[artifact_prob, 1-artifact_prob])
+            choise = 1
         if choise:
             choise2 = numpy.random.choice(2, 1, p=[0.5, 0.5])
             if choise2:
-                patch, seam = articactor.patch_misalignment(patch, min_angle, max_angle, vertical_seam=True)
+                patch, seam = articactor.patch_misalignment(patch_large, min_angle, max_angle, vertical_seam=True)
 
+                patch = patch[ \
+                              int(patch_size *
+                              patch_artifact_enlargement/2):-int(patch_size * patch_artifact_enlargement/2),
+                              int(patch_size *
+                              patch_artifact_enlargement / 2):-int(patch_size * patch_artifact_enlargement / 2), :]
+
+                seam = seam[ \
+                              int(patch_size *
+                              patch_artifact_enlargement/2):-int(patch_size * patch_artifact_enlargement/2),
+                              int(patch_size *
+                              patch_artifact_enlargement / 2):-int(patch_size * patch_artifact_enlargement / 2), :]
                 '''
                     plt.subplot(1,2,1)
                     plt.imshow(patch)
@@ -98,8 +116,19 @@ for im, image_name in enumerate(images_names):
                 '''
 
             else:
-                patch, seam = articactor.patch_misalignment(patch, min_angle, max_angle, vertical_seam=False)
+                patch, seam = articactor.patch_misalignment(patch_large, min_angle, max_angle, vertical_seam=False)
 
+                patch = patch[ \
+                              int(patch_size *
+                              patch_artifact_enlargement/2):-int(patch_size * patch_artifact_enlargement/2),
+                              int(patch_size *
+                              patch_artifact_enlargement / 2):-int(patch_size * patch_artifact_enlargement / 2), :]
+
+                seam = seam[ \
+                              int(patch_size *
+                              patch_artifact_enlargement/2):-int(patch_size * patch_artifact_enlargement/2),
+                              int(patch_size *
+                              patch_artifact_enlargement / 2):-int(patch_size * patch_artifact_enlargement / 2), :]
                 '''
                     plt.subplot(1,2,1)
                     plt.imshow(patch)
@@ -110,6 +139,16 @@ for im, image_name in enumerate(images_names):
 
             y[0] = 0.
             y[1] = 1.
+        else:
+            patch = patch_large[ \
+                              int(patch_size *
+                              patch_artifact_enlargement/2):-int(patch_size * patch_artifact_enlargement/2),
+                              int(patch_size *
+                              patch_artifact_enlargement / 2):-int(patch_size * patch_artifact_enlargement / 2), :]
+
+        if not numpy.random.choice(2, 1, p=[rotation_prob, 1-rotation_prob]):
+            patch = patch.transpose([1,0,2])
+            print("rotated 90 deg")
 
         data_set_x[int(num_of_examps / len(images_names)) * im + k, :, :, :] = patch
         data_set_y[int(num_of_examps / len(images_names)) * im + k, :] = y
@@ -160,6 +199,6 @@ for k in range(data_set.test_x.shape[0]):
         img.imsave(os.path.join(path_to_test_images, '1', '{:04d}.bmp'.format(k)),
                    data_set.test_x[k].astype(numpy.uint8))
 
-data_set.export_data(os.path.join(path_to_traning_images, 'train_uint8.pickle'),
-                     os.path.join(path_to_validation_images, 'val_uint8.pickle'),
-                     os.path.join(path_to_test_images, 'test_uint8.pickle'))
+data_set.export_data(os.path.join(path_to_traning_images, 'train.pickle'),
+                     os.path.join(path_to_validation_images, 'val.pickle'),
+                     os.path.join(path_to_test_images, 'test.pickle'))

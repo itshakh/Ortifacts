@@ -37,6 +37,23 @@ class Artifactory:
         self.patch_width = patch_width
 
     @staticmethod
+    def get_rot_matrix(angle):
+        """
+        Generate random rotation matrix
+        :param max_angle:
+        :return:
+        """
+        theta = angle * (numpy.pi / 180)
+
+        matrix = numpy.ndarray(shape=(2, 2), dtype=numpy.float32)
+        matrix[0, 0] = numpy.cos(theta)
+        matrix[0, 1] = -numpy.sin(theta)
+        matrix[1, 0] = numpy.sin(theta)
+        matrix[1, 1] = matrix[0, 0]
+
+        return matrix
+
+    @staticmethod
     def get_random_rot_matrix(min_angle, max_angle):
         """
         Generate random rotation matrix
@@ -122,4 +139,6 @@ class Artifactory:
         seam = numpy.absolute(seam_mask - shifted_seam)
 
         return seam.astype(numpy.float32)
-
+    @staticmethod
+    def feathering(seam_mask):
+        pass
