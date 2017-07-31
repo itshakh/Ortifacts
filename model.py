@@ -13,9 +13,12 @@ def minpool2d(x, k=2):
     return tf.negative(temp)
 
 
-def conv2d(x, W, strides=1):
+def conv2d(x, W, b, strides=1):
     # Conv2D wrapper, with NO bias and relu activation
-    return tf.nn.conv2d(x, W, strides=[1, strides, strides, 1], padding='VALID')
+
+    regularizer = tf.nn.l2_loss(W)
+    conv = tf.nn.conv2d(x, W, strides=[1, strides, strides, 1], padding='VALID')
+    return tf.nn.bias_add(conv, b), regularizer
 
 
 def batch_norm(in_tensor, phase_train, name, decay=0.99):
@@ -63,7 +66,7 @@ def net(input, weights, biases, FLAGS, is_training, dropout=0.75):
     x = batch_norm(input, is_training, name="input", decay=0.99) # batch_norm_wrapper(input, is_training, decay=0.999, epsilon=1e-3)
     # Convolution Layer
 
-    conv1 = conv2d(x, weights['wc1'])
+    conv1, reg1 = conv2d(x, weights['wc1'], biases['bc1'])
     # conv1 = batch_norm(conv1, is_training, name="conv1", decay=0.99)
     # conv1 = batch_norm_wrapper(conv1, is_training, decay=0.999, epsilon=1e-3)
     conv1 = batch_norm(conv1, is_training, name="conv1", decay=0.99)
@@ -72,13 +75,13 @@ def net(input, weights, biases, FLAGS, is_training, dropout=0.75):
 
     pool1 = maxpool2d(conv1) # 96 * 3 to 48 * 50
 
-    conv2 = conv2d(pool1, weights['wc2'])
+    conv2, reg2 = conv2d(pool1, weights['wc2'], biases['bc2'])
     conv2 = batch_norm(conv2, is_training, name="conv2", decay=0.99)# batch_norm_wrapper(conv2, is_training, decay=0.999, epsilon=1e-3)
     conv2 = tf.nn.relu(conv2)
 
     pool2 = maxpool2d(conv2) # 44 * 50 to 22 * 100
 
-    conv3 = conv2d(pool2, weights['wc3'])
+    conv3, reg3 = conv2d(pool2, weights['wc3'], biases['bc3'])
     # conv3 = batch_norm(conv3, is_training, "conv3", 0.99)
     conv3 = batch_norm(conv3, is_training, name="conv3", decay=0.99) # batch_norm_wrapper(conv3, is_training, decay=0.999, epsilon=1e-3)
     # Max Pooling (down-sampling)
@@ -111,4 +114,6 @@ def net(input, weights, biases, FLAGS, is_training, dropout=0.75):
 
     out = tf.add(tf.matmul(tf.contrib.layers.flatten(pool3), weights['out']), biases['out'])
     out = tf.nn.sigmoid(out)
-    return out
+
+    reg = reg1 + reg2 + reg3
+    return out, reg

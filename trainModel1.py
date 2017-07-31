@@ -7,23 +7,25 @@ import matplotlib.pyplot as plt
 
 FLAGS = dict()
 FLAGS['patch_size'] = 100
-FLAGS['learning_rate'] = 0.001
-FLAGS['kernel_size'] = 5
+FLAGS['learning_rate'] = 0.00001
+FLAGS['kernel_size1'] = 7
+FLAGS['kernel_size2'] = 5
+FLAGS['kernel_size3'] = 3
 FLAGS['num_of_filters1'] = 50
 FLAGS['num_of_filters2'] = 100
 FLAGS['num_of_filters3'] = 50
-FLAGS['batch_size'] = 20
+FLAGS['batch_size'] = 50
 FLAGS['max_iters'] = 10000000
 FLAGS['epochs'] = 50
 FLAGS['training'] = True
 FLAGS['dropout'] = 0.75
 FLAGS['display_step'] = 50
-FLAGS['pre_trained_model_path'] = './models/10_06_17__2.model.ckpt'
-FLAGS['output_model_path'] = './models/07_07_17__3.model.ckpt'
+FLAGS['pre_trained_model_path'] = './models/07_07_17__5.model.ckpt'
+FLAGS['output_model_path'] = './models/07_07_17__6.model.ckpt'
 FLAGS['train_data_path'] = './images/train/train.pickle'
 FLAGS['val_data_path'] = './images/val/val.pickle'
 FLAGS['test_data_path'] = './images/test/test.pickle'
-
+FLAGS['beta'] = 0.001
 # load data
 full_data = data.Data('')
 full_data.import_data(FLAGS['train_data_path'], FLAGS['val_data_path'], FLAGS['test_data_path'])
@@ -38,29 +40,30 @@ training = tf.placeholder(tf.bool, name='training')
 weights = {
     # 5x5 conv, 1 input, 16 outputs
     'wc1': tf.Variable(tf.random_normal(
-        [FLAGS['kernel_size'], FLAGS['kernel_size'], 3, FLAGS['num_of_filters1']]
+        [FLAGS['kernel_size1'], FLAGS['kernel_size1'], 3, FLAGS['num_of_filters1']]
         , 0, 1.)),
     'wc2': tf.Variable(tf.random_normal(
-        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters1'], FLAGS['num_of_filters2']]
+        [FLAGS['kernel_size2'], FLAGS['kernel_size2'], FLAGS['num_of_filters1'], FLAGS['num_of_filters2']]
         , 0, 1.)),
     'wc3': tf.Variable(tf.random_normal(
-        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters2'], 1]
+        [FLAGS['kernel_size3'], FLAGS['kernel_size3'], FLAGS['num_of_filters2'], 1]
         , 0, 1.)),
 
     # 'wc4': tf.Variable(tf.random_normal([FLAGS['num_of_filters3'] * 2, 200], 0, 1.)),
     # 'wc5': tf.Variable(tf.random_normal([200, 200], 0, 1.)),
 
-    'out': tf.Variable(tf.random_normal([81, 2], 0, 1.))
+    'out': tf.Variable(tf.random_normal([100, 2], 0, 1.))
 }
 #variable_summaries(weights)
 biases = {
-    'bc4': tf.Variable(tf.random_normal([81])),
-    'bc5': tf.Variable(tf.random_normal([81])),
-    'out': tf.Variable(tf.random_normal([2]))
+    'bc1': tf.Variable(tf.random_normal([FLAGS['num_of_filters1']], 0, 0.01)),
+    'bc2': tf.Variable(tf.random_normal([FLAGS['num_of_filters2']], 0, 0.01)),
+    'bc3': tf.Variable(tf.random_normal([1], 0, 0.01)),
+    'out': tf.Variable(tf.random_normal([2], 0, 0.01))
 }
 
 # initialize the CNN
-pred = model.net(x, weights, biases, FLAGS, training, keep_prob)
+pred, reg = model.net(x, weights, biases, FLAGS, training, keep_prob)
 # test_pred = model.net(x, weights, biases, FLAGS, training, keep_prob)
 
 # Performance parameters
@@ -99,8 +102,7 @@ False_detection_99_0 = tf.count_nonzero(tf.cast(tf.logical_and(tf.greater(Negati
 test_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1)), tf.float32))
 
 # cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred, labels=y))
-cost = tf.reduce_mean(tf.abs(tf.add(y, tf.negative(pred)))) # L1
-
+cost = tf.reduce_mean(tf.abs(tf.add(y, tf.negative(pred))) + FLAGS['beta'] * reg) # L1
 losses = []
 
 # Strat session for training
@@ -161,7 +163,7 @@ if FLAGS['training']:
                 losses_training.append(train_loss)
 
 
-                print("Epoch " + str(epoch) + ", Iter " + str(step*FLAGS['batch_size'])
+                print("\nEpoch " + str(epoch) + ", Iter " + str(step*FLAGS['batch_size'])
                       + "\nTraining Loss = {:.6f}".format(train_loss) +
                       " \nAccuracy = {:.6f}".format(acc_train)+
                       " \nFPR = {:.6f}".format(fpr_train) +
