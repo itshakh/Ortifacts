@@ -7,23 +7,25 @@ import matplotlib.pyplot as plt
 
 FLAGS = dict()
 FLAGS['patch_size'] = 100
-FLAGS['learning_rate'] = 0.001
-FLAGS['kernel_size'] = 5
-FLAGS['num_of_filters1'] = 50
-FLAGS['num_of_filters2'] = 100
-FLAGS['num_of_filters3'] = 50
+FLAGS['learning_rate'] = 0.000005
+FLAGS['kernel_size'] = 3
+FLAGS['num_of_filters1'] = 32
+FLAGS['num_of_filters2'] = 64
+FLAGS['num_of_filters3'] = 128
+FLAGS['num_of_filters4'] = 256
+FLAGS['num_of_filters5'] = 512
 FLAGS['batch_size'] = 20
 FLAGS['max_iters'] = 10000000
 FLAGS['epochs'] = 50
 FLAGS['training'] = True
 FLAGS['dropout'] = 0.75
 FLAGS['display_step'] = 50
-FLAGS['pre_trained_model_path'] = './models/10_06_17__2.model.ckpt'
-FLAGS['output_model_path'] = './models/07_07_17__3.model.ckpt'
+FLAGS['pre_trained_model_path'] = './models/07_07_17__6.model.ckpt'
+FLAGS['output_model_path'] = './models/07_07_17__7.model.ckpt'
 FLAGS['train_data_path'] = './images/train/train.pickle'
 FLAGS['val_data_path'] = './images/val/val.pickle'
 FLAGS['test_data_path'] = './images/test/test.pickle'
-
+FLAGS['Beta'] = 0.0001
 # load data
 full_data = data.Data('')
 full_data.import_data(FLAGS['train_data_path'], FLAGS['val_data_path'], FLAGS['test_data_path'])
@@ -44,23 +46,33 @@ weights = {
         [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters1'], FLAGS['num_of_filters2']]
         , 0, 1.)),
     'wc3': tf.Variable(tf.random_normal(
-        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters2'], 1]
+        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters2'], FLAGS['num_of_filters3']]
         , 0, 1.)),
 
+    'wc4': tf.Variable(tf.random_normal(
+        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters3'], FLAGS['num_of_filters4']]
+        , 0, 1.)),
+
+    'wc5': tf.Variable(tf.random_normal(
+        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters4'], FLAGS['num_of_filters5']]
+        , 0, 1.)),
+
+    'wc6': tf.Variable(tf.random_normal(
+        [int(FLAGS['num_of_filters5'] * numpy.round(float(FLAGS['patch_size'])/(2**6))**2), 512]
+        , 0, 1.)),
     # 'wc4': tf.Variable(tf.random_normal([FLAGS['num_of_filters3'] * 2, 200], 0, 1.)),
     # 'wc5': tf.Variable(tf.random_normal([200, 200], 0, 1.)),
 
-    'out': tf.Variable(tf.random_normal([81, 2], 0, 1.))
+    'out': tf.Variable(tf.random_normal([2048, 2], 0, 1.))
 }
 #variable_summaries(weights)
 biases = {
-    'bc4': tf.Variable(tf.random_normal([81])),
-    'bc5': tf.Variable(tf.random_normal([81])),
-    'out': tf.Variable(tf.random_normal([2]))
+    'bc6': tf.Variable(tf.zeros((2048))),
+    'out': tf.Variable(tf.zeros((2)))
 }
 
 # initialize the CNN
-pred = model.net(x, weights, biases, FLAGS, training, keep_prob)
+pred, reg = model.net(x, weights, biases, FLAGS, training, keep_prob)
 # test_pred = model.net(x, weights, biases, FLAGS, training, keep_prob)
 
 # Performance parameters
@@ -99,7 +111,7 @@ False_detection_99_0 = tf.count_nonzero(tf.cast(tf.logical_and(tf.greater(Negati
 test_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1)), tf.float32))
 
 # cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred, labels=y))
-cost = tf.reduce_mean(tf.abs(tf.add(y, tf.negative(pred)))) # L1
+cost = tf.reduce_mean(tf.abs(tf.add(y, tf.negative(pred))) + FLAGS['Beta'] * reg) # L1
 
 losses = []
 
@@ -176,8 +188,6 @@ if FLAGS['training']:
                       " \nFalse Detection 99.9 = {:6f}".format(fd_train_99_9) +
                       " \nFalse Detection 99 = {:6f}".format(fd_train_99_0))
 
-                if tpr_val > 0.97 and fpr_val < 0.03:
-                    break
                 # save_path = saver.save(sess, r"E:\studies\NetworkSeg\checkpoints\model.ckpt")
                 # print("Model saved in file: %s" % save_path)
         epoch += 1

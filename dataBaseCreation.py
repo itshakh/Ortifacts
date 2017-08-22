@@ -11,7 +11,7 @@ patch_size = 100
 patch_artifact_enlargement = 0.5
 max_angle = 15
 min_angle = 5
-num_of_examps = 10000
+num_of_examps = 100000
 # percentages
 
 rotation_prob = 0.1

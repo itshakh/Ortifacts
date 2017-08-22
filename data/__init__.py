@@ -84,7 +84,7 @@ class Data:
         """
         pickle.dump((self.train_x, self.train_y), open(train_path, "wb"))
         pickle.dump((self.val_x, self.val_y), open(val_path, "wb"))
-        pickle.dump((self.train_x, self.train_y), open(test_path, "wb"))
+        pickle.dump((self.test_x, self.test_y), open(test_path, "wb"))
 
     def import_data(self, train_path, val_path, test_path):
         """
