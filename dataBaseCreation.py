@@ -7,7 +7,7 @@ import data
 import shutil
 
 
-patch_size = 100
+patch_size = 224
 patch_artifact_enlargement = 0.5
 max_angle = 15
 min_angle = 5
