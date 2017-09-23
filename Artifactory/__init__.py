@@ -1,6 +1,7 @@
 import numpy
 import matplotlib.image as img
 import scipy.ndimage.interpolation as interp
+import scipy.ndimage.filters as filter
 import matplotlib.pyplot as plt
 
 
@@ -98,19 +99,38 @@ class Artifactory:
             out[:, :, 1] = interp.affine_transform(patch[:, :, 1], rot_matrix, offset=(0, 0))
             out[:, :, 2] = interp.affine_transform(patch[:, :, 2], rot_matrix, offset=(0, 0))
 
-            return out
+            return numpy.uint8(out)
 
-    def patch_misalignment(self, patch, min_rot_angle_deg, max_rot_angle_deg, vertical_seam=True):
+    @staticmethod
+    def merge_patches(patch, sub_patch, seam_mask, feather=False, kernel_size_pix=10):
+        sub_patch[sub_patch == 0] = patch[sub_patch == 0]  # fill_holes
+
+        if not feather:
+            out = sub_patch  # static left side
+            out[seam_mask == 1] = patch[seam_mask == 1]  # distort right side
+        else:
+            weighted_mask = numpy.zeros_like(seam_mask, dtype=numpy.float32)
+            weighted_mask[:, :, 0] = filter.gaussian_filter(input=255*seam_mask[:, :, 0], sigma=kernel_size_pix, truncate=2.0)
+            weighted_mask[:, :, 1] = filter.gaussian_filter(input=255*seam_mask[:, :, 1], sigma=kernel_size_pix, truncate=2.0)
+            weighted_mask[:, :, 2] = filter.gaussian_filter(input=255*seam_mask[:, :, 2], sigma=kernel_size_pix, truncate=2.0)
+
+            weighted_mask = weighted_mask/255
+            out = numpy.zeros(shape=patch.shape, dtype=numpy.float32)
+            out += numpy.multiply(weighted_mask, numpy.float32(sub_patch))
+            out += numpy.multiply((1.0 - weighted_mask), numpy.float32(patch))
+            out = numpy.uint8(out)
+
+        out[out == 0] = 1
+        return out
+
+    def patch_misalignment(self, patch, min_rot_angle_deg, max_rot_angle_deg, vertical_seam=True, feather=True):
 
         seam_mask = self.create_random_seam_mask(patch, vertical_seam)
         seam = self.find_seam(seam_mask)
 
         matrix = self.get_random_rot_matrix(min_rot_angle_deg, max_rot_angle_deg)
         sub_patch_left = self.rotate_patch(patch, matrix)
-
-        out = sub_patch_left  # static left side
-        out[seam_mask == 255] = patch[seam_mask == 255]  # distort right side
-        out[out == 0] = patch[out == 0]  # fill holes
+        out = self.merge_patches(patch=patch, sub_patch=sub_patch_left, feather=feather, seam_mask=seam_mask)
 
         return out, seam
 
@@ -120,25 +140,25 @@ class Artifactory:
         random_x = numpy.random.randint(patch.shape[0] / 4, 3 * patch.shape[0] / 4)
 
         if vertical_seam:
-            mask_out[:, :random_x, 0:3] = [255, 255, 255]
+            mask_out[:, :random_x, 0:3] = [1, 1, 1]
 
         else:
             for row in range(0, self.patch_height):
-                mask_out[row, :random_x, 0:3] = [255, 255, 255]
+                mask_out[row, :random_x, 0:3] = [1, 1, 1]
                 random_x += numpy.random.randint(0, 3) - 1
                 random_x = min(random_x, mask_out.shape[1] - 1)
                 random_x = max(random_x, 0)
 
-        return numpy.uint8(mask_out)
+        return numpy.float32(mask_out)
 
     @staticmethod
     def find_seam(seam_mask):
 
-        shifted_seam = numpy.zeros_like(seam_mask, dtype=numpy.float32) + 255
+        shifted_seam = numpy.zeros_like(seam_mask, dtype=numpy.float32) + 1
         shifted_seam[:, 1:, 0:3] = seam_mask[:, :-1, 0:3]
         seam = numpy.absolute(seam_mask - shifted_seam)
 
         return seam.astype(numpy.float32)
-    @staticmethod
-    def feathering(seam_mask):
-        pass
+
+
+
