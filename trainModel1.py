@@ -6,26 +6,26 @@ import matplotlib.pyplot as plt
 
 
 FLAGS = dict()
-FLAGS['patch_size'] = 100
-FLAGS['learning_rate'] = 0.00001
-FLAGS['kernel_size1'] = 7
-FLAGS['kernel_size2'] = 5
-FLAGS['kernel_size3'] = 3
-FLAGS['num_of_filters1'] = 50
-FLAGS['num_of_filters2'] = 100
-FLAGS['num_of_filters3'] = 50
-FLAGS['batch_size'] = 50
+FLAGS['patch_size'] = 224
+FLAGS['learning_rate'] = 0.0001
+FLAGS['kernel_size'] = 3
+FLAGS['num_of_filters1'] = 32
+FLAGS['num_of_filters2'] = 64
+FLAGS['num_of_filters3'] = 128
+FLAGS['num_of_filters4'] = 256
+FLAGS['num_of_filters5'] = 512
+FLAGS['batch_size'] = 20
 FLAGS['max_iters'] = 10000000
 FLAGS['epochs'] = 50
 FLAGS['training'] = True
 FLAGS['dropout'] = 0.75
-FLAGS['display_step'] = 50
-FLAGS['pre_trained_model_path'] = './models/07_07_17__5.model.ckpt'
-FLAGS['output_model_path'] = './models/07_07_17__6.model.ckpt'
+FLAGS['display_step'] = 100
+FLAGS['pre_trained_model_path'] = './models/07_07_17__8.model.ckpt' #'./models/07_07_17__6.model.ckpt'
+FLAGS['output_model_path'] = './models/07_07_17__9.model.ckpt'
 FLAGS['train_data_path'] = './images/train/train.pickle'
 FLAGS['val_data_path'] = './images/val/val.pickle'
 FLAGS['test_data_path'] = './images/test/test.pickle'
-FLAGS['beta'] = 0.001
+FLAGS['Beta'] = 0.001
 # load data
 full_data = data.Data('')
 full_data.import_data(FLAGS['train_data_path'], FLAGS['val_data_path'], FLAGS['test_data_path'])
@@ -40,26 +40,35 @@ training = tf.placeholder(tf.bool, name='training')
 weights = {
     # 5x5 conv, 1 input, 16 outputs
     'wc1': tf.Variable(tf.random_normal(
-        [FLAGS['kernel_size1'], FLAGS['kernel_size1'], 3, FLAGS['num_of_filters1']]
+        [FLAGS['kernel_size'], FLAGS['kernel_size'], 3, FLAGS['num_of_filters1']]
         , 0, 1.)),
     'wc2': tf.Variable(tf.random_normal(
-        [FLAGS['kernel_size2'], FLAGS['kernel_size2'], FLAGS['num_of_filters1'], FLAGS['num_of_filters2']]
+        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters1'], FLAGS['num_of_filters2']]
         , 0, 1.)),
     'wc3': tf.Variable(tf.random_normal(
-        [FLAGS['kernel_size3'], FLAGS['kernel_size3'], FLAGS['num_of_filters2'], 1]
+        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters2'], FLAGS['num_of_filters3']]
         , 0, 1.)),
 
+    'wc4': tf.Variable(tf.random_normal(
+        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters3'], FLAGS['num_of_filters4']]
+        , 0, 1.)),
+
+    'wc5': tf.Variable(tf.random_normal(
+        [FLAGS['kernel_size'], FLAGS['kernel_size'], FLAGS['num_of_filters4'], FLAGS['num_of_filters5']]
+        , 0, 1.)),
+
+    'wc6': tf.Variable(tf.random_normal(
+        [int(FLAGS['num_of_filters5'] * numpy.round(float(FLAGS['patch_size'])/(2**6))**2), 512]
+        , 0, 1.)),
     # 'wc4': tf.Variable(tf.random_normal([FLAGS['num_of_filters3'] * 2, 200], 0, 1.)),
     # 'wc5': tf.Variable(tf.random_normal([200, 200], 0, 1.)),
 
-    'out': tf.Variable(tf.random_normal([100, 2], 0, 1.))
+    'out': tf.Variable(tf.random_normal([18432, 2], 0, 1.))
 }
 #variable_summaries(weights)
 biases = {
-    'bc1': tf.Variable(tf.random_normal([FLAGS['num_of_filters1']], 0, 0.01)),
-    'bc2': tf.Variable(tf.random_normal([FLAGS['num_of_filters2']], 0, 0.01)),
-    'bc3': tf.Variable(tf.random_normal([1], 0, 0.01)),
-    'out': tf.Variable(tf.random_normal([2], 0, 0.01))
+    'bc6': tf.Variable(tf.zeros((18432))),
+    'out': tf.Variable(tf.zeros((2)))
 }
 
 # initialize the CNN
@@ -102,7 +111,8 @@ False_detection_99_0 = tf.count_nonzero(tf.cast(tf.logical_and(tf.greater(Negati
 test_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1)), tf.float32))
 
 # cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred, labels=y))
-cost = tf.reduce_mean(tf.abs(tf.add(y, tf.negative(pred))) + FLAGS['beta'] * reg) # L1
+cost = tf.reduce_mean(tf.abs(tf.add(y, tf.negative(pred))) + FLAGS['Beta'] * reg) # L1
+
 losses = []
 
 # Strat session for training
@@ -148,38 +158,72 @@ if FLAGS['training']:
             glob_step += 1
 
             if step % FLAGS['display_step'] == 0:
+                num_of_batches = 0
+                val_loss = 0
+                acc_val = 0
 
-                train_loss, acc_train, tpr_train, fpr_train,fnr_train = sess.run([cost, accuracy, tpr, fpr, fnr],
-                                                                       feed_dict={x: batch_x, y: batch_y, keep_prob: 1.
-                                                                                  , training: True})
-                val_loss, acc_val, tpr_val, fpr_val, fnr_val, fd_train_99_0, fd_train_99_9 = sess.run([
-                    cost, accuracy, tpr, fpr, fnr, False_detection_99_0, False_detection_99_9], feed_dict={
-                    x: full_data.val_x[:250], y: full_data.val_y[:250], keep_prob: 1., training: False
-                })
+                train_loss = 0
+                acc_train = 0
+                TN = 0
+                TP = 0
+                FP = 0
+                FN = 0
+                for bat in range(int(500 / FLAGS['batch_size'])):
+
+                    train_loss_, tn_, tp_, fp_, fn_ = sess.run([cost, tn, tp, fp, fn],
+                                                     feed_dict={
+                                        x: full_data.train_x[bat*FLAGS['batch_size']:(bat + 1)*FLAGS['batch_size']],
+                                        y:full_data.train_y[bat * FLAGS['batch_size']:(bat + 1)*FLAGS['batch_size']],
+                                        keep_prob: 1.
+                                        ,training: True})
+                    TN += tn_
+                    TP += tp_
+                    FP += fp_
+                    FN += fn_
+                    train_loss += train_loss_
+                acc_train = (TP + TN) / (TN + TP + FP + FN)
+                fpr_train = FP / (FP + TN)
+                tpr_train = TP / (TP + FN)
+                fnr_train = FN / (FN + TP)
+                train_loss /= bat
+
+                for bat in range(int(500 / FLAGS['batch_size'])):
+
+                    val_loss_, tn_, tp_, fp_, fn_ = sess.run([
+                        cost,tn, tp, fp, fn], feed_dict={
+                        x: full_data.val_x[bat*FLAGS['batch_size']:(bat + 1)*FLAGS['batch_size']],
+                        y: full_data.val_y[bat*FLAGS['batch_size']:(bat + 1)*FLAGS['batch_size']],
+                        keep_prob: 1., training: False
+                    })
+                    TN += tn_
+                    TP += tp_
+                    FP += fp_
+                    FN += fn_
+                    val_loss += val_loss_
+                acc_val = (TP + TN) / (TN + TP + FP + FN)
+                fpr_val = FP / (FP + TN)
+                tpr_val = TP / (TP + FN)
+                fnr_val = FN / (FN + TP)
+                val_loss /= bat
                 # train_writer.add_summary(summary, step)
                 # prediction.append(prediction_)
 
                 losses_validation.append(val_loss)
                 losses_training.append(train_loss)
 
-
-                print("\nEpoch " + str(epoch) + ", Iter " + str(step*FLAGS['batch_size'])
+                print("Epoch " + str(epoch) + ", Iter " + str(step*FLAGS['batch_size'])
                       + "\nTraining Loss = {:.6f}".format(train_loss) +
                       " \nAccuracy = {:.6f}".format(acc_train)+
                       " \nFPR = {:.6f}".format(fpr_train) +
-                      " \nTPR = {:.6f}".format(tpr_train)+
+                      " \nTPR = {:.6f}".format(tpr_train) +
                       " \nFNR = {:.6f}".format(fnr_train))
 
                 print("\nValidation Loss = " + "{:.6f}".format(val_loss) +
                       " \nAccuracy = {:.6f}".format(acc_val) +
                       " \nFPR = {:.6f}".format(fpr_val) +
                       " \nTPR = {:.6f}".format(tpr_val) +
-                      " \nFNR = {:.6f}".format(fnr_val) +
-                      " \nFalse Detection 99.9 = {:6f}".format(fd_train_99_9) +
-                      " \nFalse Detection 99 = {:6f}".format(fd_train_99_0))
+                      " \nFNR = {:.6f}".format(fnr_val))
 
-                if tpr_val > 0.97 and fpr_val < 0.03:
-                    break
                 # save_path = saver.save(sess, r"E:\studies\NetworkSeg\checkpoints\model.ckpt")
                 # print("Model saved in file: %s" % save_path)
         epoch += 1
@@ -187,13 +231,80 @@ if FLAGS['training']:
     save_path = saver.save(sess, FLAGS['output_model_path'])
     print("Final model saved in file: %s" % save_path)
     # sess.close()
-
-test_acc = sess.run(test_accuracy, feed_dict={x: full_data.test_x[:200], y: full_data.test_y[:200], keep_prob: 1.,
+'''
+test_acc = sess.run(test_accuracy, feed_dict={x: full_data.test_x[:100], y: full_data.test_y[:100], keep_prob: 1.,
                                               training: False})
-train_acc = sess.run(test_accuracy, feed_dict={x: full_data.train_x[:200], y: full_data.train_y[:200], keep_prob: 1.,
+train_acc = sess.run(test_accuracy, feed_dict={x: full_data.train_x[:100], y: full_data.train_y[:100], keep_prob: 1.,
                                                training: False})
-val_acc = sess.run(test_accuracy, feed_dict={x: full_data.val_x[:200], y: full_data.val_y[:200], keep_prob: 1.,
+val_acc = sess.run(test_accuracy, feed_dict={x: full_data.val_x[:100], y: full_data.val_y[:100], keep_prob: 1.,
                                              training: False})
 
 print("train accuracy = {:f} val accuracy = {:f} and test accuracy = {:f}".format(train_acc, val_acc, test_acc))
+'''
 
+TN = 0
+TP = 0
+FP = 0
+FN = 0
+for bat in range(int(full_data.train_y.shape[0] / FLAGS['batch_size'])):
+
+    train_loss_, tn_, tp_, fp_, fn_ = sess.run([cost, tn, tp, fp, fn],
+                                     feed_dict={
+                        x: full_data.train_x[bat*FLAGS['batch_size']:(bat + 1)*FLAGS['batch_size']],
+                        y:full_data.train_y[bat * FLAGS['batch_size']:(bat + 1)*FLAGS['batch_size']],
+                        keep_prob: 1.
+                        ,training: True})
+    TN += tn_
+    TP += tp_
+    FP += fp_
+    FN += fn_
+acc_train = (TP + TN) / (TN + TP + FP + FN)
+fpr_train = FP / (FP + TN)
+tpr_train = TP / (TP + FN)
+fnr_train = FN / (FN + TP)
+
+
+TN = 0
+TP = 0
+FP = 0
+FN = 0
+
+for bat in range(int(full_data.train_y.shape[0] / FLAGS['batch_size'])):
+    val_loss_, tn_, tp_, fp_, fn_ = sess.run([
+        cost, tn, tp, fp, fn], feed_dict={
+        x: full_data.val_x[bat*FLAGS['batch_size']:(bat + 1)*FLAGS['batch_size']],
+        y: full_data.val_y[bat*FLAGS['batch_size']:(bat + 1)*FLAGS['batch_size']],
+        keep_prob: 1., training: False
+    })
+    TN += tn_
+    TP += tp_
+    FP += fp_
+    FN += fn_
+acc_val = (TP + TN) / (TN + TP + FP + FN)
+fpr_val = FP / (FP + TN)
+tpr_val = TP / (TP + FN)
+fnr_val = FN / (FN + TP)
+
+TN = 0
+TP = 0
+FP = 0
+FN = 0
+
+for bat in range(int(full_data.test_y.shape[0] / FLAGS['batch_size'])):
+    val_loss_, tn_, tp_, fp_, fn_ = sess.run([
+        cost, tn, tp, fp, fn], feed_dict={
+        x: full_data.test_x[bat * FLAGS['batch_size']:(bat + 1) * FLAGS['batch_size']],
+        y: full_data.test_y[bat * FLAGS['batch_size']:(bat + 1) * FLAGS['batch_size']],
+        keep_prob: 1., training: False
+    })
+    TN += tn_
+    TP += tp_
+    FP += fp_
+    FN += fn_
+
+acc_test = (TP + TN) / (TN + TP + FP + FN)
+fpr_test = FP / (FP + TN)
+tpr_test = TP / (TP + FN)
+fnr_test = FN / (FN + TP)
+
+print("train accuracy = {:f} val accuracy = {:f} and test accuracy = {:f}".format(acc_train, acc_val, acc_test))
