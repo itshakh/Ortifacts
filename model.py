@@ -56,7 +56,7 @@ def batch_norm_wrapper(inputs, is_training, decay = 0.999, epsilon = 1e-3):
 
 
 # Create model
-def net(input, weights, biases, FLAGS, is_training, dropout=0.75):
+def net(input, weights, biases, FLAGS, is_training, dropout=0.75, summary=0):
     # Reshape input picture
     # x = tf.reshape(input, shape=[-1, FLAGS['patch_size'], FLAGS['patch_size'], 3])
     # x = batch_norm(input, is_training, name="x", decay=0.99)
@@ -104,38 +104,53 @@ def net(input, weights, biases, FLAGS, is_training, dropout=0.75):
     conv5 = batch_norm(conv5, is_training, name="conv5",
                        decay=0.99)  # batch_norm_wrapper(conv3, is_training, decay=0.999, epsilon=1e-3)
     pool5 = maxpool2d(conv5)# 18 * 100 to 9 * 1
-
-    # pool3 = tf.nn.dropout(pool3, dropout)
-    '''
-    max_pool = maxpool2d(conv3, k=FLAGS['patch_size'] - int(weights['wc3'].get_shape().as_list()[0] / 2))
-    # Min Pooling (down-sampling)
-    min_pool = minpool2d(conv3, k=FLAGS['patch_size'] - int(weights['wc3'].get_shape().as_list()[0] / 2))
-
-
-    fc1 = tf.concat([tf.reshape(max_pool, [-1, int(weights['wc3'].get_shape().as_list()[-1])]),
-                    tf.reshape(min_pool, [-1, int(weights['wc3'].get_shape().as_list()[-1])])], axis=1)
-
-    # Fully connected layer
-    fc2 = tf.add(tf.matmul(fc1, weights['wc4']), biases['bc4'])
-    fc2 = batch_norm_wrapper(fc2, is_training)
-    fc2 = tf.nn.sigmoid(fc2)
-    # Apply Dropout
-    fc2 = tf.nn.dropout(fc2, dropout)
-
-    # Fully connected layer 2
-    fc3 = tf.add(tf.matmul(fc2, weights['wc5']), biases['bc5'])
-    fc3 = batch_norm_wrapper(fc3, is_training)
-    fc3 = tf.nn.sigmoid(fc3)
-    '''
-    # Output, class prediction
-    # out = tf.add(tf.matmul(fc3, weights['out']), biases['out'])
-    #pre_fc1 = tf.contrib.layers.flatten(pool5) # tf.reshape(pool5, [-1])
-
-    #fc1 = tf.add(tf.matmul(pre_fc1, weights['wc6']), biases['bc6'])
-    #fc1 = tf.nn.sigmoid(fc1)
-    # fc1 = tf.nn.dropout(tf.contrib.layers.flatten(pool5), dropout)
-    # out = tf.add(tf.matmul(tf.contrib.layers.flatten(pool5), weights['out']), biases['out'])
+    pool5 = tf.nn.dropout(pool5, dropout)
     out = tf.add(tf.matmul(tf.contrib.layers.flatten(pool5), weights['out']), biases['out'])
 
-    out = tf.nn.sigmoid(out)
-    return out, reg1 + reg2 + reg3 + reg4 + reg5
+    # out = tf.nn.sigmoid(out)
+    sh_input = tf.shape(input)
+    sh_layer1 = tf.shape(pool1)
+    sh_layer2 = tf.shape(pool2)
+    sh_layer3 = tf.shape(pool3)
+    sh_layer4 = tf.shape(pool4)
+    sh_layer5 = tf.shape(pool5)
+
+    summaries = [
+        tf.summary.image("input", tf.reshape(input, [-1, sh_input[1], sh_input[2], sh_input[3]]), max_outputs=3),
+        tf.summary.image("layer1", tf.reshape(conv_layer_normalize(pool1), [-1, sh_layer1[1], sh_layer1[2], 1]), max_outputs=3),
+        tf.summary.image("layer2", tf.reshape(conv_layer_normalize(pool2), [-1, sh_layer2[1], sh_layer2[2], 1]), max_outputs=3),
+        tf.summary.image("layer3", tf.reshape(conv_layer_normalize(pool3), [-1, sh_layer3[1], sh_layer3[2], 1]), max_outputs=3),
+        tf.summary.image("layer4", tf.reshape(conv_layer_normalize(pool4), [-1, sh_layer4[1], sh_layer4[2], 1]), max_outputs=3),
+        tf.summary.image("layer5", tf.reshape(conv_layer_normalize(pool5), [-1, sh_layer5[1], sh_layer5[2], 1]), max_outputs=3),
+        tf.summary.image("out", tf.reshape(out, [-1, 1, 1, 1]), max_outputs=3)]
+
+    return out, reg1 + reg2 + reg3 + reg4 + reg5, summaries
+
+
+def conv_layer_weights_transpose(weights_):
+    # scale weights to [0 255] and convert to uint8 (maybe change scaling?)
+    x_min = tf.reduce_min(weights_)
+    x_max = tf.reduce_max(weights_)
+    weights_0_to_1 = (weights_ - x_min) / (x_max - x_min)
+    weights_0_to_255_uint8 = tf.image.convert_image_dtype(weights_0_to_1, dtype=tf.uint8)
+
+    # to tf.image_summary format [batch_size, height, width, channels]
+    shp = tf.shape(weights_0_to_255_uint8)
+    weights_0_to_255_uint8 = tf.reshape(weights_0_to_255_uint8,
+               [shp[0], shp[1],
+                1, -1]
+               )
+
+    weights_transposed = tf.transpose(weights_0_to_255_uint8, [3, 0, 1, 2])
+
+    return weights_transposed
+
+def conv_layer_normalize(layer):
+    # scale weights to [0 255] and convert to uint8 (maybe change scaling?)
+    x_min = tf.reduce_min(layer)
+    x_max = tf.reduce_max(layer)
+    weights_0_to_1 = (layer - x_min) / (x_max - x_min)
+    weights_0_to_255_uint8 = tf.image.convert_image_dtype(weights_0_to_1, dtype=tf.uint8)
+
+    # to tf.image_summary format [batch_size, height, width, channels]
+    return weights_0_to_255_uint8

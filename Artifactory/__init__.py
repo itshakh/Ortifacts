@@ -123,9 +123,10 @@ class Artifactory:
         out[out == 0] = 1
         return out
 
-    def patch_misalignment(self, patch, min_rot_angle_deg, max_rot_angle_deg, vertical_seam=True, feather=True):
+    def patch_misalignment(self, patch, min_rot_angle_deg, max_rot_angle_deg, vertical_seam=True, feather=True
+                           ,rand_seam_location=True):
 
-        seam_mask = self.create_random_seam_mask(patch, vertical_seam)
+        seam_mask = self.create_random_seam_mask(patch, vertical_seam, rand_seam_location)
         seam = self.find_seam(seam_mask)
 
         matrix = self.get_random_rot_matrix(min_rot_angle_deg, max_rot_angle_deg)
@@ -134,11 +135,13 @@ class Artifactory:
 
         return out, seam
 
-    def create_random_seam_mask(self, patch, vertical_seam=True):
+    def create_random_seam_mask(self, patch, vertical_seam=True, rand_seam_location=True):
 
         mask_out = numpy.zeros_like(patch, dtype=numpy.float32)
-        random_x = numpy.random.randint(patch.shape[0] / 4, 3 * patch.shape[0] / 4)
-
+        if rand_seam_location:
+            random_x = numpy.random.randint(patch.shape[0] / 4, 3 * patch.shape[0] / 4)
+        else:
+            random_x = int(patch.shape[0] / 2)
         if vertical_seam:
             mask_out[:, :random_x, 0:3] = [1, 1, 1]
 

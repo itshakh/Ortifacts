@@ -4,16 +4,17 @@ import matplotlib.image as img
 import Artifactory
 import os
 import shutil
+import csv
 
 
 # properties
-patch_size = 224
+patch_size = 100
 patch_artifact_enlargement = 0.5
 max_angle = 20
 min_angle = 10
 
 # data set size
-data_base_size_unit = 1000
+data_base_size_unit = 100000
 train_size_factor = 1.0
 validation_size_factor = 0.1
 test_size_factor = 0.1
@@ -79,6 +80,16 @@ print('|{:10} | {:5}|      Per Image|'.format('  Val Patches', num_of_val_patche
 print('|{:10} | {:5}|      Per Image|'.format(' Test Patches', num_of_test_patches_per_image))
 print('|-------------------------------------|\n')
 
+# open file for train data
+csvFile = open(path_to_train_images + "/train-labels.csv", 'w', newline='')
+writer_train = csv.writer(csvFile, delimiter=',', quotechar='"')
+# open file for test data
+csvFile = open(path_to_test_images + "/test-labels.csv", 'w', newline='')
+writer_test = csv.writer(csvFile, delimiter=',', quotechar='"')
+# open file for val data
+csvFile = open(path_to_val_images + "/val-labels.csv", 'w', newline='')
+writer_val = csv.writer(csvFile, delimiter=',', quotechar='"')
+
 # create patches
 enlarged_patch_size = int(patch_size * (1 + patch_artifact_enlargement))
 
@@ -129,7 +140,11 @@ for image, image_name in enumerate(images_names):
             cur_class = test_classes[test_global_id % num_of_test_patches_per_image]
 
         if cur_class == 1:
-            patch_large, seam = factory.patch_misalignment(patch_large, min_angle, max_angle, vertical_seam=random.choice([True, False]))
+            patch_large, seam = factory.patch_misalignment(patch_large,
+                                                           min_angle, max_angle,
+                                                           vertical_seam=random.choice([True, False]),
+                                                                                       feather=True,
+                                                                                       rand_seam_location=False)
 
         patch = patch_large[
                 int(patch_size *
@@ -143,15 +158,19 @@ for image, image_name in enumerate(images_names):
         # save
         # train:
         if cur_role == 0:
-            cur_save_path = os.path.join(path_to_train_images, str(cur_class), '{:05d}.bmp'.format(train_global_id))
+            cur_save_path = os.path.join(path_to_train_images, str(cur_class), '{:05d}.png'.format(train_global_id))
+            writer_train.writerow([cur_save_path, str(cur_class)])
         # val:
         elif cur_role == 1:
-            cur_save_path = os.path.join(path_to_val_images, str(cur_class), '{:05d}.bmp'.format(val_global_id))
+            cur_save_path = os.path.join(path_to_val_images, str(cur_class), '{:05d}.png'.format(val_global_id))
+            writer_val.writerow([cur_save_path,  str(cur_class)])
         # test:
         elif cur_role == 2:
-            cur_save_path = os.path.join(path_to_test_images, '{}'.format(cur_class), '{:05d}.bmp'.format(test_global_id))
+            cur_save_path = os.path.join(path_to_test_images, '{}'.format(cur_class), '{:05d}.png'.format(test_global_id))
+            writer_test.writerow([cur_save_path,  str(cur_class)])
 
         img.imsave(cur_save_path, patch)
+
         print('\rPROGRESS ...... {:3d}% done'.format(int(100 * global_id / (patches_per_image * num_images))),
               end='', flush=True)
 
