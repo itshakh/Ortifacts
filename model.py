@@ -13,12 +13,9 @@ def minpool2d(x, k=2):
     return tf.negative(temp)
 
 
-def conv2d(x, W, b, strides=1):
+def conv2d(x, W, strides=1):
     # Conv2D wrapper, with NO bias and relu activation
-
-    regularizer = tf.nn.l2_loss(W)
-    conv = tf.nn.conv2d(x, W, strides=[1, strides, strides, 1], padding='VALID')
-    return tf.nn.bias_add(conv, b), regularizer
+    return tf.nn.conv2d(x, W, strides=[1, strides, strides, 1], padding='VALID')
 
 
 def batch_norm(in_tensor, phase_train, name, decay=0.99):
@@ -66,28 +63,49 @@ def net(input, weights, biases, FLAGS, is_training, dropout=0.75):
     x = batch_norm(input, is_training, name="input", decay=0.99) # batch_norm_wrapper(input, is_training, decay=0.999, epsilon=1e-3)
     # Convolution Layer
 
-    conv1, reg1 = conv2d(x, weights['wc1'], biases['bc1'])
+    conv1 = conv2d(x, weights['wc1'])
+    reg1 = tf.nn.l2_loss(weights['wc1'])
     # conv1 = batch_norm(conv1, is_training, name="conv1", decay=0.99)
     # conv1 = batch_norm_wrapper(conv1, is_training, decay=0.999, epsilon=1e-3)
-    conv1 = batch_norm(conv1, is_training, name="conv1", decay=0.99)
 
     conv1 = tf.nn.relu(conv1)
-
+    conv1 = batch_norm(conv1, is_training, name="conv1", decay=0.99)
     pool1 = maxpool2d(conv1) # 96 * 3 to 48 * 50
 
-    conv2, reg2 = conv2d(pool1, weights['wc2'], biases['bc2'])
-    conv2 = batch_norm(conv2, is_training, name="conv2", decay=0.99)# batch_norm_wrapper(conv2, is_training, decay=0.999, epsilon=1e-3)
+    conv2 = conv2d(pool1, weights['wc2'])
+    reg2 = tf.nn.l2_loss(weights['wc2'])
     conv2 = tf.nn.relu(conv2)
-
+    conv2 = batch_norm(conv2, is_training, name="conv2", decay=0.99)  # batch_norm_wrapper(conv2, is_training, decay=0.999, epsilon=1e-3)
     pool2 = maxpool2d(conv2) # 44 * 50 to 22 * 100
 
-    conv3, reg3 = conv2d(pool2, weights['wc3'], biases['bc3'])
+    conv3 = conv2d(pool2, weights['wc3'])
     # conv3 = batch_norm(conv3, is_training, "conv3", 0.99)
-    conv3 = batch_norm(conv3, is_training, name="conv3", decay=0.99) # batch_norm_wrapper(conv3, is_training, decay=0.999, epsilon=1e-3)
+    reg3 = tf.nn.l2_loss(weights['wc3'])
     # Max Pooling (down-sampling)
     conv3 = tf.nn.relu(conv3)
+    conv3 = batch_norm(conv3, is_training, name="conv3",
+                       decay=0.99)  # batch_norm_wrapper(conv3, is_training, decay=0.999, epsilon=1e-3)
     pool3 = maxpool2d(conv3)# 18 * 100 to 9 * 1
-    pool3 = tf.nn.dropout(pool3, dropout)
+
+    conv4 = conv2d(pool3, weights['wc4'])
+    # conv3 = batch_norm(conv3, is_training, "conv3", 0.99)
+    reg4 = tf.nn.l2_loss(weights['wc4'])
+    # Max Pooling (down-sampling)
+    conv4 = tf.nn.relu(conv4)
+    conv4 = batch_norm(conv4, is_training, name="conv4",
+                       decay=0.99)  # batch_norm_wrapper(conv3, is_training, decay=0.999, epsilon=1e-3)
+    pool4 = maxpool2d(conv4)# 18 * 100 to 9 * 1
+
+    conv5 = conv2d(pool4, weights['wc5'])
+    # conv3 = batch_norm(conv3, is_training, "conv3", 0.99)
+    reg5 = tf.nn.l2_loss(weights['wc5'])
+    # Max Pooling (down-sampling)
+    conv5 = tf.nn.relu(conv5)
+    conv5 = batch_norm(conv5, is_training, name="conv5",
+                       decay=0.99)  # batch_norm_wrapper(conv3, is_training, decay=0.999, epsilon=1e-3)
+    pool5 = maxpool2d(conv5)# 18 * 100 to 9 * 1
+
+    # pool3 = tf.nn.dropout(pool3, dropout)
     '''
     max_pool = maxpool2d(conv3, k=FLAGS['patch_size'] - int(weights['wc3'].get_shape().as_list()[0] / 2))
     # Min Pooling (down-sampling)
@@ -111,9 +129,13 @@ def net(input, weights, biases, FLAGS, is_training, dropout=0.75):
     '''
     # Output, class prediction
     # out = tf.add(tf.matmul(fc3, weights['out']), biases['out'])
+    #pre_fc1 = tf.contrib.layers.flatten(pool5) # tf.reshape(pool5, [-1])
 
-    out = tf.add(tf.matmul(tf.contrib.layers.flatten(pool3), weights['out']), biases['out'])
+    #fc1 = tf.add(tf.matmul(pre_fc1, weights['wc6']), biases['bc6'])
+    #fc1 = tf.nn.sigmoid(fc1)
+    # fc1 = tf.nn.dropout(tf.contrib.layers.flatten(pool5), dropout)
+    # out = tf.add(tf.matmul(tf.contrib.layers.flatten(pool5), weights['out']), biases['out'])
+    out = tf.add(tf.matmul(tf.contrib.layers.flatten(pool5), weights['out']), biases['out'])
+
     out = tf.nn.sigmoid(out)
-
-    reg = reg1 + reg2 + reg3
-    return out, reg
+    return out, reg1 + reg2 + reg3 + reg4 + reg5
